@@ -1,6 +1,6 @@
-Flask
+flask
 python-dotenv
 openai
-flask-LimiterFlask-Cors
-
+flask-limiter
+flask-cors
 gunicorn
