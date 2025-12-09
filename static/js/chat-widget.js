@@ -2,8 +2,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Ustawienia API ---
-    // UWAGA: Zmień to na publiczny adres URL Twojego wdrożonego serwera Flask, jeśli jest wdrożony
-    const FLASK_API_CHAT_URL = '/chat'; 
+    // UWAGA: Zmieniono adres URL, aby wskazywał na wdrożony serwer Flask na Renderze
+    const FLASK_API_CHAT_URL = 'https://matyla-chat.onrender.com/chat'; 
     // UWAGA: Zmień to na endpoint swojej wtyczki WordPress (jeśli jest inny)
     const WP_LEAD_ENDPOINT = '/wp-json/matyla/v1/save-lead'; 
 
