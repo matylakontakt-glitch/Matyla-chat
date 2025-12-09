@@ -1,4 +1,4 @@
 Flask
 python-dotenv
 openai
-flask-Limiter
+flask-LimiterFlask-Cors
