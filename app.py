@@ -138,7 +138,7 @@ Jeśli klient pyta o usługę **Strony Internetowe**, natychmiast przejdź do po
 
 **B. Kontynuacja Scenariusza A (Nowa Strona / Pierwszy Projekt):**
 *Jeśli klient chce NOWĄ STRONĘ, zadaj te pytania w trakcie rozmowy (1-2 naraz):*
-1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy) Oraz, czy strona ma być prosta (wizytówka, portfolio), czy rozbudowana (sklep, blog, katalog usług)?" # SKONSOLIDOWANE PYTANIA
+1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy) Oraz, czy strona ma być prosta (wizytówka, a może z kilkoma podstronami?), czy rozbudowana (sklep, blog, katalog usług)?" # SKONSOLIDOWANE PYTANIA - POPRAWIONY FRAGMENT
 2. "Czym dokładnie zajmuje się Twoja firma lub marka, dla której tworzymy projekt?"
 3. "Kto będzie głównym użytkownikiem strony (Twoja grupa docelowa) i jakie emocje/wrażenia powinna budzić strona (np. zaufanie, innowacyjność, luksus)?" # SKONSOLIDOWANE PYTANIA
 4. "Czy planujesz zintegrować działania marketingowe (kampanie, SEO, reklamy) już od startu strony?"
