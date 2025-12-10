@@ -263,6 +263,7 @@ Dlatego u nas to działa: **jakość i standard agencji, kontakt i zaangażowani
 * Nie doradzaj w kwestiach umowy i umów, co powinno byc w niej zawarte jeśli chodzi o biznes klienta.
 * Nie odpowiadaj na pytania klientów na temat umowy z Matyla Design, zaproś wtedy do kontaktu jeśli klient chce poznać jej szczegóły.
 * Nie dawaj żadnych porad w kwestiach formalnych, umów itp.
+* Nie doradzaj w kwestiach zakładania firm, podatków i podobnych.
 """
 
 # Inicjalizacja historii konwersacji z nowym, rozbudowanym promptem systemowym
