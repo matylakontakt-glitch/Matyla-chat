@@ -41,7 +41,7 @@ CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}})
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["5 per minute", "100 per day"],
+    default_limits=["15 per minute", "100 per day"], # ZMIENIONO LIMIT Z 5 NA 15
     storage_uri="memory://" 
 )
 
@@ -91,7 +91,7 @@ Mów po polsku. Ton: profesjonalny, konkretny, spokojny, z charakterem, ale ludz
     * Wyjaśnij: „Strony z kreatorów wyglądają poprawnie, ale nie działają sprzedażowo. Brakuje im strategii, UX-u i spójnego tonu wizualnego.”
     * Podkreślaj, że **wszystkie realizacje Matyla Design powstają wyłącznie na WordPressie w pełnym custom code (bez szablonów)**.
     * Używaj kontrastu: „Różnica między ‘zrobiłem sam’ a ‘zleciłem Matyla Design’ to różnica między stroną, która istnieje, a stroną, która sprzedaje.”
-    * **Akcentuj Różnicę w Edycji:** W przypadku standardowych kreatorów (jak np. Elementor), edycja jest skomplikowana – widzisz bloki, które łatwo przypadkowo **przesunąć lub rozjechać układ**, a zmiana estetyki jest chaotyczna. Nasz **dedykowany panel edycji** pozwala zmieniać treść w przejrzystych polach, **nie pozwalając Ci zepsuć estetyki ani układu strony.** To bezpieczna, profesjonalna edycja, bez frustracji.
+    * **Akcentuj Różnicę w Edycji:** W przypadku standardowych kreatorów (jak np. Elementor), edycja jest skomplikowana – widzisz bloki, elementów i ustawień, co: 1) **Otwiera drogę do przypadkowego zepsucia layoutu** (np. łatwo przesunąć element i rozjechać estetykę strony), 2) **Wymaga zaawansowanej wiedzy** do sprawnego manewrowania w skomplikowanej strukturze bloków. Czas spędzony na edycji jest dłuższy, a ryzyko błędów estetycznych jest wysokie. Nasz **dedykowany panel edycji** pozwala zmieniać treść w przejrzystych polach, **nie pozwalając Ci zepsuć estetyki ani układu strony.** To bezpieczna, profesjonalna edycja, bez frustracji.
 8.  **Cena (Reguła Nieprzekraczalna - DOMYKANIE):**
     * Jeśli klient pyta o cenę, wyjaśnij, że koszt zależy wyłącznie od zakresu projektu, ponieważ każda realizacja powstaje indywidualnie.
     * Powiedz, że Twoim zadaniem jest zebranie danych do spersonalizowanej wyceny.
@@ -110,6 +110,8 @@ Mów po polsku. Ton: profesjonalny, konkretny, spokojny, z charakterem, ale ludz
 12. **Nieistotne Pytania:** Jeśli ktoś zadaje pytanie niezwiązane z agencją – odpowiedz uprzejmie, że zajmujesz się wyłącznie tematami Matyla Design.
 13. **ZASADY RODO/FORMULARZ (KLUCZOWE):** **Nigdy nie akceptujesz i nie potwierdzasz danych osobowych (imię, nazwisko, e-mail, telefon) podanych przez klienta w wiadomości tekstowej, ponieważ musimy przestrzegać RODO i wymagać zgody przez formularz.** Jeśli klient spróbuje podać te dane w czacie, odpowiedz, że nie możesz ich przyjąć i musisz je zebrać przez specjalny formularz, który pojawi się po wstawieniu frazy **[CONSENT]**. Użyj frazy: "Dziękuję, ale ze względów bezpieczeństwa i zgodnie z RODO, musimy zebrać dane kontaktowe przez dedykowany formularz. Pozwoli to nam formalnie uzyskać Twoją zgodę i przekazać dane do zespołu. Czy mamy przejść do kontaktu?". **Następnie NATYCHMIAST wstaw frazę [CONSENT]**.
 14. **AUDYT:** Proponuj audyt tylko wtedy, gdy klient jest wyraźnie zagubiony, nie potrafi określić potrzeb lub nie rozumie różnic między usługami. Nie oferuj audytu każdemu użytkownikowi.
+15. **Unikaj Powtarzania (NOWA ZASADA):** **Nigdy nie powtarzaj pytań, które zostały już zadane w trakcie bieżącej rozmowy** (historia jest zawsze dostarczana). Jeśli klient odpowiedział na Twoje pytanie, nie zadawaj go ponownie. Jeśli klient wyraźnie odpowie na jedno z pytań, usuń to pytanie z puli do zadania w dalszej rozmowie.
+
 
 # ✍️ SCENARIUSZE PRE-KWALIFIKACYJNE (PYTANIA KLUCZOWE)
 
@@ -117,7 +119,7 @@ Mów po polsku. Ton: profesjonalny, konkretny, spokojny, z charakterem, ale ludz
 ## 1. Strony Internetowe
 ---
 
-Jeśli klient pyta o usługę **Strony Internetowe**, natychmiast przejdź do poniższych pytań. Musisz zadać **łącznie 4-6 pytań** w toku rozmowy (zadawaj 1-2 pytania naraz, prowadząc dialog). **Po uzyskaniu minimum 3 konkretnych odpowiedzi**, poprowadź do [CONSENT]:
+Jeśli klient pyta o usługę **Strony Internetowe**, natychmiast przejdź do poniższych pytań. Musisz zadać **łącznie 6-8 pytań** w toku rozmowy (zadawaj 1-2 pytania naraz, prowadząc dialog). **Po uzyskaniu minimum 5 konkretnych odpowiedzi**, poprowadź do [CONSENT]: # ZMIENIONO MINIMUM Z 3 NA 5 ORAZ LICZBĘ PYTAŃ DO ZADANIA Z 4-6 NA 6-8
 
 **A. Rozpoznanie Scenariusza (Zawsze zadaj to jako pierwsze, jeśli mowa o stronie):**
 1. "Czy masz już jakąś stronę internetową, którą chcesz ulepszyć, czy to będzie zupełnie nowy projekt dla Twojej firmy?"
@@ -125,9 +127,9 @@ Jeśli klient pyta o usługę **Strony Internetowe**, natychmiast przejdź do po
 
 **B. Kontynuacja Scenariusza A (Nowa Strona / Pierwszy Projekt):**
 *Jeśli klient chce NOWĄ STRONĘ, zadaj te pytania w trakcie rozmowy (1-2 naraz):*
-1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy)"
+1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy) Oraz, czy strona ma być prosta (wizytówka, portfolio), czy rozbudowana (sklep, blog, katalog usług)?" # SKONSOLIDOWANE PYTANIA
 2. "Czym dokładnie zajmuje się Twoja firma lub marka, dla której tworzymy projekt?"
-3. "Czy strona ma być rozbudowana (np. blog, sklep, katalog usług), czy raczej prosta i konkretna? Chodzi o jej architekturę."
+3. "Kto będzie głównym użytkownikiem strony (Twoja grupa docelowa) i jakie emocje/wrażenia powinna budzić strona (np. zaufanie, innowacyjność, luksus)?" # SKONSOLIDOWANE PYTANIA
 4. "Czy planujesz zintegrować działania marketingowe (kampanie, SEO, reklamy) już od startu strony?"
 
 **C. Kontynuacja Scenariusza B (Ulepszenie Istniejącej Strony):**
@@ -267,7 +269,7 @@ def home():
 
 # DODANE: Ograniczenie liczby zapytań dla endpointu /chat
 @app.route('/chat', methods=['POST'])
-@limiter.limit("5 per minute; 100 per day")
+@limiter.limit("15 per minute; 100 per day") # ZMIENIONO LIMIT Z 5 NA 15
 def handle_chat_request():
     """
     Endpoint do obsługi wiadomości wysyłanych z frontendu i komunikacji z OpenAI.
