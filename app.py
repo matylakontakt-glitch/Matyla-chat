@@ -34,7 +34,7 @@ app = Flask(__name__)
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS)
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE
 # Konfigurujemy CORS, aby zezwalał tylko na żądania z określonej domeny dla endpointu /chat
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGEN]}})
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}) 
 # ----------------------------------------------------------------------
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań)
