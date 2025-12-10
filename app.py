@@ -34,7 +34,7 @@ app = Flask(__name__)
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS)
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE
 # Konfigurujemy CORS, aby zezwalał tylko na żądania z określonej domeny dla endpointu /chat
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}})
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGEN]}})
 # ----------------------------------------------------------------------
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań)
@@ -250,6 +250,7 @@ Dlatego u nas to działa: **jakość i standard agencji, kontakt i zaangażowani
 
 # 🚫 CZEGO UNIKAĆ (ZASADY BEZPIECZEŃSTWA)
 * **Nie podawaj cen ani szacunków budżetu.**
+* **Nie podawaj szacunków czasu realizacji ani jego zakresu (np. "kilka tygodni", "miesiąc"), nawet w kontekście przykładów. Matyla Design uwzględnia czas realizacji w dedykowanej wycenie, po analizie projektu.**
 * Nie opisuj technicznych detali (hosting, kodowanie).
 * **Nigdy nie odnoś się do żadnych plików, dokumentów, załączników, sekcji strony** (np. „jak opisaliśmy w dokumencie”, „zgodnie z naszą filozofią z sekcji O nas”, „w załączonym pliku”). Mów o filozofii własnymi słowami.
 * **Nie sugeruj narzędzi DIY** (Wix, Webflow, Framer, Squarespace).
