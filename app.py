@@ -1,14 +1,16 @@
-# app.py
-
 # --- Importy Wymaganych Bibliotek ---
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
+# Importujemy konkretne błędy OpenAI do obsługi ponawiania
+from openai import RateLimitError, APIError 
 import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS 
 import logging
+# Wymagane do dodania opóźnienia w mechanizmie retry
+import time 
 
 # --- Konfiguracja Logowania ---
 # Ustawienie podstawowej konfiguracji logowania: zapis do pliku 'app.log'
@@ -257,6 +259,7 @@ def handle_chat_request():
     """
     Endpoint do obsługi wiadomości wysyłanych z frontendu i komunikacji z OpenAI.
     Zwraca odpowiedź AI ORAZ pełną historię rozmowy.
+    Dodano mechanizm Retry (3 próby) dla błędów RateLimitError i APIError.
     """
     client_ip = get_remote_address()
     logger.info(f"REQUEST START | IP: {client_ip}")
@@ -283,37 +286,59 @@ def handle_chat_request():
     # 1. Dodaj wiadomość użytkownika do historii
     conversation_history.append({"role": "user", "content": user_message})
 
-    try:
-        # 2. Wyślij całą historię do OpenAI, aby zachować kontekst
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=conversation_history
-        )
+    # --- MECHANIZM RETRY Z ZAGĘSZCZONYM OPÓŹNIENIEM ---
+    MAX_RETRIES = 3
+    delay = 1.5 # Początkowe opóźnienie w sekundach
 
-        ai_response = completion.choices[0].message.content.strip()
+    for attempt in range(MAX_RETRIES):
+        try:
+            # 2. Wyślij całą historię do OpenAI, aby zachować kontekst
+            completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=conversation_history
+            )
 
-        # 3. Dodaj odpowiedź AI do historii
-        conversation_history.append({"role": "assistant", "content": ai_response})
+            ai_response = completion.choices[0].message.content.strip()
+
+            # 3. Dodaj odpowiedź AI do historii
+            conversation_history.append({"role": "assistant", "content": ai_response})
+            
+            # 4. Zwróć odpowiedź do frontendu, ZAWIERAJĄC PEŁNĄ HISTORIĘ KONWERSACJI
+            response = jsonify({
+                'response': ai_response,
+                'history': conversation_history
+            })
+
+            # Logowanie sukcesu BEZ treści odpowiedzi
+            logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens} | Próba: {attempt + 1}")
+
+            return response # Zakończ i zwróć odpowiedź
+
+        except (RateLimitError, APIError) as e:
+            # Obsługa błędu limitu zapytań (429) i ogólnych błędów API
+            logger.warning(f"RETRY REQUIRED | IP: {client_ip} | Błąd: {type(e).__name__} | Próba: {attempt + 1}/{MAX_RETRIES}")
+            
+            # Usuwamy wiadomość użytkownika z historii, aby nie powtarzać jej w kolejnej próbie
+            # (Jest ona dodana na początku funkcji)
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(delay)
+                delay *= 2 # Podwójne opóźnienie dla kolejnej próby (1.5 -> 3.0 -> 6.0)
+            else:
+                # Jeśli to była ostatnia próba i się nie powiodła, usuwamy wiadomość i logujemy błąd.
+                logger.error(f"RETRY FAILED (429) | IP: {client_ip} | Błąd: {type(e).__name__} | Po {MAX_RETRIES} próbach.")
+                # Usuwamy wiadomość użytkownika, aby zachować czystą historię przed zwróceniem błędu
+                conversation_history.pop() 
+                # Zwrócenie błędu zgodnie z instrukcją
+                return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429
         
-        # 4. Zwróć odpowiedź do frontendu, ZAWIERAJĄC PEŁNĄ HISTORIĘ KONWERSACJI
-        response = jsonify({
-            'response': ai_response,
-            'history': conversation_history
-        })
-
-        # Logowanie sukcesu BEZ treści odpowiedzi
-        logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens}")
-
-        return response
-
-    except Exception as e:
-        # Bardziej ogólne błędy i obsługa błędów API
-        error_message = f"Przepraszam, wystąpił problem techniczny podczas przetwarzania Twojego zapytania. (Błąd: {type(e).__name__})"
-        
-        # Logowanie błędu API
-        logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD API: {type(e).__name__} - {e}")
-        
-        return jsonify({'response': error_message}), 500
+        except Exception as e:
+            # Inne nieobsłużone błędy
+            logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD OGÓLNY: {type(e).__name__} - {e}")
+            # Usuwamy wiadomość użytkownika, aby zachować czystą historię
+            conversation_history.pop() 
+            error_message = "Przepraszam, wystąpił nieoczekiwany problem techniczny. (Błąd: Nieznany błąd API)"
+            return jsonify({'response': error_message}), 500
+    # --- KONIEC MECHANIZMU RETRY ---
 
 
 # --- Uruchomienie Serwera ---
