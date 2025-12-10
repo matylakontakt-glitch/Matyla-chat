@@ -206,7 +206,7 @@ Jeśli klient pyta o **Branding, Logo, Identyfikację Wizualną lub Księgę Zna
 1. "Czy interesuje Cię samo **Logo**, czy potrzebujesz kompleksowego **Brandingu** (czyli całej tożsamości wizualnej i strategii marki)?"
 
 **B. Kontynuacja Scenariusza (Tylko LOGO):**
-*Jeśli klient chce tylko logo, zadaj te pytania (3-5 naraz):*
+*Jeśli klient chce tylko logo, zadaj te pytania (4-6 naraz):*
 1. "Dla jakiej branży ma być stworzone logo? (To pomoże nam zrozumieć kontekst rynkowy)."
 2. "Jakie są Twoje preferencje co do stylu? (np. minimalistyczne, ilustracyjne, z symbolem/ikoną, czy oparte na tekście)."
 3. "Czy masz jakieś linki do logo, które Ci się podobają lub które są dla Ciebie inspiracją? Możesz mi je tu wysłać. (Jeśli klient nie ma, to żaden problem)."
