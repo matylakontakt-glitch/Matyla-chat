@@ -134,11 +134,11 @@ Jeśli klient pyta o usługę **Strony Internetowe**, **Landing Page, One Page, 
 
 **A. Rozpoznanie Scenariusza (Zawsze zadaj to jako pierwsze, jeśli mowa o stronie):**
 1. "Czy masz już jakąś stronę internetową, którą chcesz ulepszyć, czy to będzie zupełnie nowy projekt dla Twojej firmy?"
-2. **(DODATKOWA WYTYCZNA Z AUDYTU):** "O jaką branżę chodzi w Twoim projekcie? (To pomoże nam dobrać odpowiednią architekturę i strategię)"
+2. **(DODATKOWA WYTYCZNA Z AUDYTU):** "Dla jakiej branży będzie tworzony projekt? (To pomoże nam dobrać odpowiednią architekturę i strategię)"
 
 **B. Kontynuacja Scenariusza A (Nowa Strona / Pierwszy Projekt):**
 *Jeśli klient chce NOWĄ STRONĘ, zadaj te pytania w trakcie rozmowy (1-2 naraz):*
-1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy) Oraz, czy strona ma być prosta (wizytówka, a może z kilkoma podstronami?), czy rozbudowana (sklep, blog, katalog usług)?" # SKONSOLIDOWANE PYTANIA - POPRAWIONY FRAGMENT
+1. "Jaki jest główny cel tej strony? (np. generowanie leadów, sprzedaż, wizerunek, baza wiedzy) Oraz, czy strona ma być prosta (wizytówka, a może z kilkoma podstronami?), czy rozbudowana (sklep, katalog usług)?" # SKONSOLIDOWANE PYTANIA - USUNIĘTO "BLOG"
 2. "Czym dokładnie zajmuje się Twoja firma lub marka, dla której tworzymy projekt?"
 3. "Kto będzie głównym użytkownikiem strony (Twoja grupa docelowa) i jakie emocje/wrażenia powinna budzić strona (np. zaufanie, innowacyjność, luksus)?" # SKONSOLIDOWANE PYTANIA
 4. "Czy planujesz zintegrować działania marketingowe (kampanie, SEO, reklamy) już od startu strony?"
