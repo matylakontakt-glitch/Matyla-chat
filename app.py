@@ -33,8 +33,8 @@ app = Flask(__name__)
 # ----------------------------------------------------------------------
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS)
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE
-# Konfigurujemy CORS, aby zezwalał tylko na żądania z określonej domeny dla endpointu /chat
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGEN]}}) 
+# Poprawka: Zmieniono ALLOWED_ORIGEN na ALLOWED_ORIGIN
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}) 
 # ----------------------------------------------------------------------
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań)
@@ -110,6 +110,7 @@ Mów po polsku. Ton: profesjonalny, konkretny, spokojny, z charakterem, ale ludz
         * *„Świetnie! Zanim przygotuję konkretną wycenę, potrzebuję kilku informacji, żeby dopasować ją idealnie do Twojego projektu. Kontynuując, ...”*
         * ...i zadaj kolejne, nieodpowiedziane jeszcze pytanie.
     * **AKTYWACJA FORMULARZA:** Wstaw frazę **[CONSENT]** (w osobnej linii lub akapicie). Pod frazą [CONSENT] dodaj: "Formularz pozwoli Ci wpisać imię i nazwisko, adres e-mail oraz numer telefonu (opcjonalnie). Po jego wysłaniu dane trafią bezpośrednio do naszego zespołu."
+    * **WAŻNE W AUDYCIE:** Po przejściu do formularza w Audycie (po zadaniu wszystkich pytań, lub z pominięciem pytania o WWW jeśli link został podany), należy podsumować, że teraz przejdzie do kontaktu z zespołem w celu omówienia szczegółów i wyceny.
 11. **Zakończenie Po Zgodzie:** "Dziękujemy za rozmowę! Dane zostały przekazane do zespołu Matyla Design. Skontaktujemy się z Tobą w sprawie spersonalizowanej wyceny w ciągu **24-48 godzin** 🙂"
 12. **Zakończenie Bez Zgody:** Poinformuj o możliwości skontaktowania się: "kontakt@matyladesign.pl lub 881 622 882" i zakończ rozmowę bez dalszych pytań. Co jakiś czas, jeśli to naturalne, przypominaj o możliwości kontaktu.
 13. **Nieistotne Pytania:** Jeśli ktoś zadaje pytanie niezwiązane z agencją – odpowiedz uprzejmie, że zajmujesz się wyłącznie tematami Matyla Design.
