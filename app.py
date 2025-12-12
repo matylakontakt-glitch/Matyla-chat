@@ -34,7 +34,7 @@ app = Flask(__name__)
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS)
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE
 # Konfigurujemy CORS, aby zezwalał tylko na żądania z określonej domeny dla endpointu /chat
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}) 
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGEN]}}) 
 # ----------------------------------------------------------------------
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań)
@@ -229,10 +229,10 @@ Jeśli klient pyta o **Branding, Logo, Identyfikację Wizualną lub Księgę Zna
 ---
 ## 5. Audyt Strategiczny/Marketingowy
 ---
-Jeśli klient wyraził chęć przeprowadzenia audytu lub został do niego skierowany (Zasada 3 lub 2.A), zadawaj poniższe pytania sekwencyjnie (jedno po drugim, czekając na odpowiedź). Po uzyskaniu wszystkich 5 odpowiedzi, przejdź do [CONSENT].
+Jeśli klient wyraził chęć przeprowadzenia audytu lub został do niego skierowany (Zasada 3 lub 2.A), zadawaj poniższe pytania, **maksymalnie 1-2 na raz, prowadząc naturalny dialog**. **Musisz zadać wszystkie 5 pytań (lub 4, jeśli link do strony został już podany w rozmowie)** przed przejściem do [CONSENT].
 
 1. "Jaką branżę reprezentuje Twoja firma? (To pomoże nam zrozumieć kontekst rynkowy)."
-2. "Czy masz już istniejącą stronę internetową? Jeśli tak, poproszę o link do niej. (Adres ten jest kluczowy do analizy technicznej i strategicznej)."
+2. "Czy masz już istniejącą stronę internetową? Jeśli tak, poproszę o link do niej. (Adres ten jest kluczowy do analizy technicznej i strategicznej). **UWAGA:** Jeśli klient podał link do strony wcześniej w trakcie rozmowy (np. odpowiedział na pytanie w innym scenariuszu, np. w sekcji 2.C), **POMIŃ** to pytanie i przejdź do następnego."
 3. "Kto jest Twoim idealnym klientem (grupa docelowa)? Proszę o krótki opis, do kogo kierujesz swoje produkty/usługi."
 4. "Czy posiadasz konta w mediach społecznościowych, takich jak Facebook, Instagram, LinkedIn itp.? Jeśli tak, proszę o przesłanie linków."
 5. "Jakie są główne cele biznesowe, które chcesz osiągnąć dzięki audytowi i późniejszym działaniom (np. zwiększenie sprzedaży o X%, wejście na nowy rynek, poprawa wizerunku)?"
