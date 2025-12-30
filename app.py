@@ -299,59 +299,60 @@ def handle_chat_request():
     if not user_message:
         return jsonify({"response": "Wiadomość nie może być pusta."}), 400
 
-    # --- LOGIKA BUDOWANIA HISTORII ---
+    # --- LOGIKA BUDOWANIA HISTORII DLA OPENAI ---
     messages_for_api = []
     
-    # 1. Zawsze upewniamy się, że SYSTEM_PROMPT jest na samym początku (tylko raz)
+    # 1. Wstrzykujemy aktualny SYSTEM_PROMPT (zawsze na początku)
     messages_for_api.append({"role": "system", "content": SYSTEM_PROMPT})
 
-    # 2. Dodajemy historię przesłaną z frontendu (ale odfiltrowujemy stare system prompty, jeśli tam były)
+    # 2. Dodajemy historię z frontendu (filtrujemy, by nie dublować promptów systemowych)
     if isinstance(client_history, list):
         for msg in client_history:
-            if msg.get("role") != "system":
-                messages_for_api.append(msg)
+            if isinstance(msg, dict) and msg.get("role") in ["user", "assistant"]:
+                messages_for_api.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
 
-    # 3. Dodajemy aktualną wiadomość użytkownika
+    # 3. Dodajemy nową wiadomość od użytkownika
     messages_for_api.append({"role": "user", "content": user_message})
 
-    # 4. Ograniczenie historii (opcjonalne, ale pomaga przy zapętlaniu)
-    # Jeśli historia jest bardzo długa (np. > 20 wiadomości), zachowujemy system prompt + 15 ostatnich
-    if len(messages_for_api) > 20:
-        messages_for_api = [messages_for_api[0]] + messages_for_api[-15:]
+    # 4. Optymalizacja długości (zachowujemy system prompt + 14 ostatnich wiadomości)
+    if len(messages_for_api) > 15:
+        messages_for_api = [messages_for_api[0]] + messages_for_api[-14:]
 
     try:
-        # Wywołanie modelu
+        # Wywołanie modelu OpenAI
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages_for_api,
-            temperature=0.7 # Dodano lekką losowość, by AI nie było robotyczne
+            temperature=0.7
         )
 
         ai_response = completion.choices[0].message.content.strip()
         
-        # 5. Aktualizujemy historię, którą odeślemy do przeglądarki
-        # Dodajemy odpowiedź asystenta do listy
-        messages_for_api.append({"role": "assistant", "content": ai_response})
+        # 5. Przygotowanie czystej historii do zwrotu (bez SYSTEM_PROMPT)
+        # Dzięki temu frontend dostaje tylko dialogi, co zapobiega błędom
+        history_to_return = [msg for msg in messages_for_api if msg["role"] != "system"]
+        history_to_return.append({"role": "assistant", "content": ai_response})
 
         logger.info(f"REQUEST SUCCESS | IP: {client_ip}")
 
-        # Odsyłamy odpowiedź i CAŁĄ zaktualizowaną historię
         return jsonify({
             "response": ai_response,
-            "history": messages_for_api # Frontend nadpisze swoją zmienną 'history' tym zestawem
+            "history": history_to_return
         })
 
     except Exception as e:
-        logger.error(f"ERROR | IP: {client_ip} | {e}")
+        logger.error(f"ERROR | IP: {client_ip} | {str(e)}")
         return jsonify({
             "response": "Przepraszam, wystąpił błąd techniczny. Spróbuj zadać pytanie jeszcze raz."
         }), 500
-
-    # --- KONIEC MECHANIZMU RETRY --- 
 
 
 # --- Uruchomienie Serwera --- 
 
 if __name__ == '__main__': 
+    # Render używa zmiennej środowiskowej PORT
     port = int(os.environ.get('PORT', 5001)) 
     app.run(host='0.0.0.0', port=port)
