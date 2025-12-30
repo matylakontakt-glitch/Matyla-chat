@@ -279,23 +279,18 @@ Dlatego u nas to działa: **jakość i standard agencji, kontakt i zaangażowani
 * Nie doradzaj w kwestiach zakładania firm, podatków i podobnych. 
 * **Nie pisz ani nie sugeruj pisania artykułów, tekstów, wpisów blogowych, treści na strony internetowe, ani żadnych innych form content marketingu.** """ 
 
-# Inicjalizacja historii konwersacji z nowym, rozbudowanym promptem systemowym 
-conversation_history = [ 
-{"role": "system", "content": SYSTEM_PROMPT}, 
-] 
+
 
 # --- Routing Aplikacji --- 
 
-@app.route('/') 
-def home(): 
-    """ 
-    Trasa główna aplikacji. Renderuje interfejs widżetu chatu. 
-    Resetuje stan rozmowy przy każdym załadowaniu strony, zachowując system prompt. 
-    """ 
-    global conversation_history 
-    # Resetuje konwersację, pozostawiając tylko system prompt 
-    conversation_history = conversation_history[:1] 
-    return render_template('widget-demo.html') 
+@app.route('/')
+def home():
+    session.clear()
+    session['history'] = [
+        {"role": "system", "content": SYSTEM_PROMPT}
+    ]
+    return render_template('widget-demo.html')
+
 
 # DODANE: Ograniczenie liczby zapytań dla endpointu /chat 
 @app.route('/chat', methods=['POST']) 
@@ -324,9 +319,14 @@ def handle_chat_request():
     logger.info(f"USER MESSAGE RECEIVED | IP: {client_ip}") 
     # ---------------------------------------------------------------------------------- 
 
-    global conversation_history 
-    # 1. Dodaj wiadomość użytkownika do historii 
-    conversation_history.append({"role": "user", "content": user_message}) 
+    if 'history' not in session:
+        session['history'] = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
+
+    history = session['history']
+    history.append({"role": "user", "content": user_message})
+
 
     # --- MECHANIZM RETRY Z ZAGĘSZCZONYM OPÓŹNIENIEM --- 
     MAX_RETRIES = 3 
@@ -335,23 +335,28 @@ def handle_chat_request():
     for attempt in range(MAX_RETRIES): 
         try: 
             # 2. Wyślij całą historię do OpenAI, aby zachować kontekst 
-            completion = client.chat.completions.create( 
-                model="gpt-4o-mini", 
-                messages=conversation_history 
-            ) 
+            completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=history
+            )
+
 
             ai_response = completion.choices[0].message.content.strip() 
 
             # 3. Dodaj odpowiedź AI do historii 
-            conversation_history.append({"role": "assistant", "content": ai_response}) 
+            history.append({"role": "assistant", "content": ai_response})
             # 4. Zwróć odpowiedź do frontendu, ZAWIERAJĄC PEŁNĄ HISTORIĘ KONWERSACJI 
             response = jsonify({ 
                 'response': ai_response, 
-                'history': conversation_history 
-            }) 
+                'history': history
+            })
+
 
             # Logowanie sukcesu BEZ treści odpowiedzi 
             logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens} | Próba: {attempt + 1}") 
+
+            session['history'] = history
+            session.modified = True
 
             return response # Zakończ i zwróć odpowiedź 
 
@@ -367,14 +372,14 @@ def handle_chat_request():
                 # Jeśli to była ostatnia próba i się nie powiodła, usuwamy wiadomość i logujemy błąd. 
                 logger.error(f"RETRY FAILED (429) | IP: {client_ip} | Błąd: {type(e).__name__} | Po {MAX_RETRIES} próbach.") 
                 # Usuwamy wiadomość użytkownika, aby zachować czystą historię przed zwróceniem błędu 
-                conversation_history.pop() 
+                history.pop()
                 # Zwrócenie błędu zgodnie z instrukcją 
                 return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429 
         except Exception as e: 
             # Inne nieobsłużone błędy 
             logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD OGÓLNY: {type(e).__name__} - {e}") 
             # Usuwamy wiadomość użytkownika, aby zachować czystą historię 
-            conversation_history.pop() 
+            history.pop()
             error_message = "Przepraszam, wystąpił nieoczekiwany problem techniczny. (Błąd: Nieznany błąd API)" 
             return jsonify({'response': error_message}), 500 
     # --- KONIEC MECHANIZMU RETRY --- 
