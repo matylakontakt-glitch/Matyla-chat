@@ -1,5 +1,5 @@
 # --- Importy Wymaganych Bibliotek --- 
-from flask import Flask, render_template, request, jsonify 
+from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv 
 from openai import OpenAI 
 # Importujemy konkretne błędy OpenAI do obsługi ponawiania 
@@ -29,12 +29,26 @@ logger = logging.getLogger(__name__)
 load_dotenv() 
 
 app = Flask(__name__) 
+app.secret_key = os.getenv(
+    "FLASK_SECRET_KEY",
+    "matyla_design_super_secret_key_change_in_prod"
+)
+
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True
+)
+
 
 # ---------------------------------------------------------------------- 
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS) 
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE 
 # Poprawka: Zmieniono ALLOWED_ORIGEN na ALLOWED_ORIGIN 
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}) 
+CORS(
+    app,
+    resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}},
+    supports_credentials=True
+)
 # ---------------------------------------------------------------------- 
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań) 
