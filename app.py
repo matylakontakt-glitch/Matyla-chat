@@ -283,105 +283,55 @@ Dlatego u nas to działa: **jakość i standard agencji, kontakt i zaangażowani
 
 # --- Routing Aplikacji --- 
 
-@app.route('/')
-def home():
-    session.clear()
-    session['history'] = [
-        {"role": "system", "content": SYSTEM_PROMPT}
-    ]
-    return render_template('widget-demo.html')
+@app.route('/chat', methods=['POST'])
+@limiter.limit("15 per minute; 100 per day")
+def handle_chat_request():
+    client_ip = get_remote_address()
+    logger.info(f"REQUEST START | IP: {client_ip}")
 
+    if not request.is_json:
+        return jsonify({"response": "Błąd: Wymagany format JSON."}), 400
 
-# DODANE: Ograniczenie liczby zapytań dla endpointu /chat 
-@app.route('/chat', methods=['POST']) 
-@limiter.limit("15 per minute; 100 per day") # ZMIENIONO LIMIT Z 5 NA 15 
-def handle_chat_request(): 
-    """ 
-    Endpoint do obsługi wiadomości wysyłanych z frontendu i komunikacji z OpenAI. 
-    Zwraca odpowiedź AI ORAZ pełną historię rozmowy. 
-    Dodano mechanizm Retry (3 próby) dla błędów RateLimitError i APIError. 
-    """ 
-    client_ip = get_remote_address() 
-    logger.info(f"REQUEST START | IP: {client_ip}") 
+    data = request.get_json()
+    user_message = data.get("message", "").strip()
+    client_history = data.get("history", [])
 
-    if not request.is_json: 
-        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Nieprawidłowy format JSON") 
-        return jsonify({"response": "Błąd: Wymagany format JSON."}), 400 
+    if not user_message:
+        return jsonify({"response": "Wiadomość nie może być pusta."}), 400
 
-    data = request.get_json() 
-    user_message = data.get('message', '').strip() 
-    if not user_message: 
-        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Pusta wiadomość") 
-        return jsonify({"response": "Wiadomość nie może być pusta."}) 
-    # ---------------------------------------------------------------------------------- 
-    # RODO POPRAWKA: Logujemy tylko fakt otrzymania wiadomości, BEZ jej treści. 
-    # Zapobiega to logowaniu danych osobowych z formularza do pliku app.log 
-    logger.info(f"USER MESSAGE RECEIVED | IP: {client_ip}") 
-    # ---------------------------------------------------------------------------------- 
+    # 🔒 ZAWSZE gwarantujemy SYSTEM_PROMPT na początku
+    history = []
+    if isinstance(client_history, list) and len(client_history) > 0:
+        history = client_history
+        if history[0].get("role") != "system":
+            history.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+    else:
+        history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    if 'history' not in session:
-        session['history'] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
-
-    history = session['history']
     history.append({"role": "user", "content": user_message})
 
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=history
+        )
 
-    # --- MECHANIZM RETRY Z ZAGĘSZCZONYM OPÓŹNIENIEM --- 
-    MAX_RETRIES = 3 
-    delay = 1.5 # Początkowe opóźnienie w sekundach 
+        ai_response = completion.choices[0].message.content.strip()
+        history.append({"role": "assistant", "content": ai_response})
 
-    for attempt in range(MAX_RETRIES): 
-        try: 
-            # 2. Wyślij całą historię do OpenAI, aby zachować kontekst 
-            completion = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=history
-            )
+        logger.info(f"REQUEST SUCCESS | IP: {client_ip}")
 
+        return jsonify({
+            "response": ai_response,
+            "history": history
+        })
 
-            ai_response = completion.choices[0].message.content.strip() 
+    except Exception as e:
+        logger.error(f"ERROR | IP: {client_ip} | {e}")
+        return jsonify({
+            "response": "Wystąpił błąd techniczny."
+        }), 500
 
-            # 3. Dodaj odpowiedź AI do historii 
-            history.append({"role": "assistant", "content": ai_response})
-            # 4. Zwróć odpowiedź do frontendu, ZAWIERAJĄC PEŁNĄ HISTORIĘ KONWERSACJI 
-            response = jsonify({ 
-                'response': ai_response, 
-                'history': history
-            })
-
-
-            # Logowanie sukcesu BEZ treści odpowiedzi 
-            logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens} | Próba: {attempt + 1}") 
-
-            session['history'] = history
-            session.modified = True
-
-            return response # Zakończ i zwróć odpowiedź 
-
-        except (RateLimitError, APIError) as e: 
-            # Obsługa błędu limitu zapytań (429) i ogólnych błędów API 
-            logger.warning(f"RETRY REQUIRED | IP: {client_ip} | Błąd: {type(e).__name__} | Próba: {attempt + 1}/{MAX_RETRIES}") 
-            # Usuwamy wiadomość użytkownika z historii, aby nie powtarzać jej w kolejnej próbie 
-            # (Jest ona dodana na początku funkcji) 
-            if attempt < MAX_RETRIES - 1: 
-                time.sleep(delay) 
-                delay *= 2 # Podwójne opóźnienie dla kolejnej próby (1.5 -> 3.0 -> 6.0) 
-            else: 
-                # Jeśli to była ostatnia próba i się nie powiodła, usuwamy wiadomość i logujemy błąd. 
-                logger.error(f"RETRY FAILED (429) | IP: {client_ip} | Błąd: {type(e).__name__} | Po {MAX_RETRIES} próbach.") 
-                # Usuwamy wiadomość użytkownika, aby zachować czystą historię przed zwróceniem błędu 
-                history.pop()
-                # Zwrócenie błędu zgodnie z instrukcją 
-                return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429 
-        except Exception as e: 
-            # Inne nieobsłużone błędy 
-            logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD OGÓLNY: {type(e).__name__} - {e}") 
-            # Usuwamy wiadomość użytkownika, aby zachować czystą historię 
-            history.pop()
-            error_message = "Przepraszam, wystąpił nieoczekiwany problem techniczny. (Błąd: Nieznany błąd API)" 
-            return jsonify({'response': error_message}), 500 
     # --- KONIEC MECHANIZMU RETRY --- 
 
 
