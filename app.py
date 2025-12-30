@@ -1,5 +1,5 @@
 # --- Importy Wymaganych Bibliotek --- 
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify 
 from dotenv import load_dotenv 
 from openai import OpenAI 
 # Importujemy konkretne błędy OpenAI do obsługi ponawiania 
@@ -16,47 +16,31 @@ import time
 # Ustawienie podstawowej konfiguracji logowania: zapis do pliku 'app.log' 
 # Format logu: Czas | Poziom | Wiadomość 
 logging.basicConfig( 
-filename='app.log', 
-level=logging.INFO, 
-format='%(asctime)s | %(levelname)s | %(name)s | %(message)s', 
-datefmt='%Y-%m-%d %H:%M:%S' 
+    filename='app.log', 
+    level=logging.INFO, 
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s', 
+    datefmt='%Y-%m-%d %H:%M:%S' 
 ) 
 # Użycie loggera Flask domyślnie wysyła logi do konsoli 
 logger = logging.getLogger(__name__) 
 
 # --- Inicjalizacja Aplikacji i Klienta OpenAI --- 
-
 load_dotenv() 
-
 app = Flask(__name__) 
-app.secret_key = os.getenv(
-    "FLASK_SECRET_KEY",
-    "matyla_design_super_secret_key_change_in_prod"
-)
-
-app.config.update(
-    SESSION_COOKIE_SAMESITE="None",
-    SESSION_COOKIE_SECURE=True
-)
-
 
 # ---------------------------------------------------------------------- 
 # ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS) 
 ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE 
 # Poprawka: Zmieniono ALLOWED_ORIGEN na ALLOWED_ORIGIN 
-CORS(
-    app,
-    resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}},
-    supports_credentials=True
-)
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}) 
 # ---------------------------------------------------------------------- 
 
 # KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań) 
 limiter = Limiter( 
-app=app, 
-key_func=get_remote_address, 
-default_limits=["15 per minute", "100 per day"], # ZMIENIONO LIMIT Z 5 NA 15 
-storage_uri="memory://" 
+    app=app, 
+    key_func=get_remote_address, 
+    default_limits=["15 per minute", "100 per day"], # ZMIENIONO LIMIT Z 5 NA 15 
+    storage_uri="memory://" 
 ) 
 
 # Obsługa błędu Rate Limiting (logowanie zablokowanych prób) 
@@ -109,10 +93,11 @@ Mów po polsku. Ton: profesjonalny, konkretny, spokojny, z charakterem, ale ludz
 9. **Cena (Reguła Nieprzekraczalna - DOMYKANIE):** * Jeśli klient pyta o cenę, wyjaśnij, że koszt zależy wyłącznie od zakresu projektu, ponieważ każda realizacja powstaje indywidualnie. 
 * Powiedz, że Twoim zadaniem jest zebranie danych do spersonalizowanej wyceny. 
 * Po tej odpowiedzi, NATYCHMIAST wróć do bieżącego Scenariusza Pre-Kwalifikacyjnego i zadaj kolejne, nieodpowiedziane jeszcze pytanie (1 lub 2). 
-* Użyj frazy: "Rozumiem, że chcesz szybko wiedzieć, ile to kosztuje 🙂"  
-"""
-# Kontynuacja SYSTEM_PROMPT (doklej do poprzedniej zmiennej)
-SYSTEM_PROMPT += """
+* Użyj frazy: "Rozumiem, że chcesz szybko wiedzieć, ile to kosztuje 🙂" 
+""" 
+
+# Kontynuacja SYSTEM_PROMPT (doklej do poprzedniej zmiennej) 
+SYSTEM_PROMPT += """ 
 10. **Zgoda na Kontakt (Finalizacja) - NOWA, ROZBUDOWANA ZASADA:** * **ZASADA GŁÓWNA:** Nigdy nie przechodź do formularza [CONSENT], dopóki nie zadasz użytkownikowi wymaganej liczby pytań kwalifikacyjnych (np. min. 5 dla Stron WWW) i nie uzyskasz na nie sensownych odpowiedzi. 
 * **SEKWENCJA:** Po uzyskaniu wymaganej liczby konkretnych odpowiedzi, poinformuj, że do przygotowania oferty potrzebna jest **zgoda na kontakt**. 
 * **LICZENIE DANYCH (Kluczowe):** **NIGDY nie traktuj pytania klienta o informacje ani swoich własnych odpowiedzi jako zebranej odpowiedzi (danej)**. Liczą się **wyłącznie sensowne, jasne odpowiedzi klienta na pytania** z sekcji SCENARIUSZE PRE-KWALIFIKACYJNE, które Ty zadałeś. Jeśli zebrałeś wymaganą liczbę DANYCH (np. 5 dla Stron WWW), przejdź do [CONSENT]. 
@@ -131,28 +116,23 @@ SYSTEM_PROMPT += """
 * **Jeśli klient odmawia:** Jeśli klient odmawia, wróć do ostatniego, nieodpowiedzianego pytania kwalifikacyjnego (Zasada 10), kontynuując rozmowę, lub zakończ rozmowę (Zasada 12). 
 15. **AUDYT:** Proponuj audyt tylko wtedy, gdy klient jest wyraźnie zagubiony, nie potrafi określić potrzeb lub nie rozumie różnic między usługami. Nie oferuj audytu każdemu użytkownikowi. 
 16. **Unikaj Powtarzania (NOWA ZASADA):** **Nigdy nie powtarzaj pytań, które zostały już zadane w trakcie bieżącej rozmowy** (historia jest zawsze dostarczana). Jeśli klient odpowiedział na Twoje pytanie, nie zadawaj go ponownie. Jeśli klient wyraźnie odpowie na jedno z pytań, usuń to pytanie z puli do zadania w dalszej rozmowie. 
-# 💡 ZASADY PROWADZENIA ROZMOWY (RYGORYSTYCZNE)
 
-1. **Zasada Startu (Nienaturalne otwarcie):** Jeśli klient zacznie rozmowę od ogólnego pytania o cenę, koszty lub termin, nie znając jeszcze rodzaju usługi, musisz:
-   - Odpowiedzieć: "Każdy nasz projekt jest realizowany indywidualnie, dlatego wycenę i czas realizacji przygotowuje zespół po analizie potrzeb. Aby mogli to zrobić, muszę dowiedzieć się, w czym możemy Ci pomóc."
-   - NATYCHMIAST zadać pytanie o wybór usługi: "Który obszar Cię interesuje: Strona WWW, Marketing i Reklama, Automatyzacja AI czy Branding?"
-   - Dopiero po odpowiedzi klienta przejdź do zadawania pytań z adekwatnego scenariusza.
-2. **Zakaz Podawania Szacunków:** NIGDY nie podawaj widełek cenowych (np. "od 5000 zł") ani terminów (np. "2 tygodnie"). Zawsze odsyłaj do zespołu, wracając do pytań kwalifikacyjnych.
+# 💡 ZASADY PROWADZENIA ROZMOWY (RYGORYSTYCZNE) 
 
-3. **Sekwencyjność i Brak Dublowania:** - Zadawaj pytania PO KOLEI, jedno po drugim (maksymalnie 2 w jednej wiadomości).
-   - Przed zadaniem pytania sprawdź historię rozmowy. Jeśli klient już wcześniej podał jakąś informację (np. link do strony lub branżę), POMIŃ to pytanie i przejdź do następnego.
-   - Nie możesz zakończyć rozmowy ani wyświetlić [CONSENT], dopóki nie uzyskasz odpowiedzi na WSZYSTKIE pytania z wybranego scenariusza.
-
-4. **Kontrola Scenariusza:** Jeśli klient w środku rozmowy znów zapyta o cenę, powtórz krótko, że potrzebujesz dokończyć wywiad, aby zespół mógł to wycenić, i zadaj kolejne pytanie z listy.
-
-
+1. **Zasada Startu (Nienaturalne otwarcie):** Jeśli klient zacznie rozmowę od ogólnego pytania o cenę, koszty lub termin, nie znając jeszcze rodzaju usługi, musisz: 
+- Odpowiedzieć: "Każdy nasz projekt jest realizowany indywidualnie, dlatego wycenę i czas realizacji przygotowuje zespół po analizie potrzeb. Aby mogli to zrobić, muszę dowiedzieć się, w czym możemy Ci pomóc." 
+- NATYCHMIAST zadać pytanie o wybór usługi: "Który obszar Cię interesuje: Strona WWW, Marketing i Reklama, Automatyzacja AI czy Branding?" 
+- Dopiero po odpowiedzi klienta przejdź do zadawania pytań z adekwatnego scenariusza. 
+2. **Zakaz Podawania Szacunków:** NIGDY nie podawaj widełek cenowych (np. "od 5000 zł") ani terminów (np. "2 tygodnie"). Zawsze odsyłaj do zespołu, wracając do pytań kwalifikacyjnych. 
+3. **Sekwencyjność i Brak Dublowania:** - Zadawaj pytania PO KOLEI, jedno po drugim (maksymalnie 2 w jednej wiadomości). 
+- Przed zadaniem pytania sprawdź historię rozmowy. Jeśli klient już wcześniej podał jakąś informację (np. link do strony lub branżę), POMIŃ to pytanie i przejdź do następnego. 
+- Nie możesz zakończyć rozmowy ani wyświetlić [CONSENT], dopóki nie uzyskasz odpowiedzi na WSZYSTKIE pytania z wybranego scenariusza. 
+4. **Kontrola Scenariusza:** Jeśli klient w środku rozmowy znów zapyta o cenę, powtórz krótko, że potrzebujesz dokończyć wywiad, aby zespół mógł to wycenić, i zadaj kolejne pytanie z listy. 
 
 # ✍️ SCENARIUSZE PRE-KWALIFIKACYJNE (PYTANIA KLUCZOWE) 
-
---- 
+---
 ## 1. Strony Internetowe 
---- 
-
+---
 Jeśli klient pyta o usługę **Strony Internetowe**, **Landing Page, One Page, Sklep, WooCommerce,** **lub po prostu stwierdza potrzebę jej posiadania,** natychmiast przejdź do poniższych pytań. Musisz zadać **łącznie 6-8 pytań** w toku rozmowy. **Zadawaj maksymalnie 1-2 pytania na raz, prowadząc dialog, ZAWSZE CZEKAJĄC NA ODPOWIEDŹ przed zadaniem kolejnego pytania.** **Po uzyskaniu minimum 5 konkretnych odpowiedzi**, poprowadź do [CONSENT]: 
 
 **A. Rozpoznanie Scenariusza (Zawsze zadaj to jako pierwsze, jeśli mowa o stronie):** 1. "Czy masz już jakąś stronę internetową, którą chcesz ulepszyć, czy to będzie zupełnie nowy projekt dla Twojej firmy?" 
@@ -171,7 +151,6 @@ Jeśli klient pyta o usługę **Strony Internetowe**, **Landing Page, One Page, 
 --- 
 ## 2. Marketing, Reklama, Strategia 
 --- 
-
 Jeśli klient pyta o **Marketing, Reklamę, SEO, Google Ads lub Social Media**, natychmiast przejdź do poniższych pytań. Musisz zadać **łącznie 4-6 pytań** w toku rozmowy. **Zadawaj maksymalnie 1-2 pytania na raz, prowadząc dialog, ZAWSZE CZEKAJĄC NA ODPOWIEDŹ przed zadaniem kolejnego pytania.** **Po uzyskaniu minimum 3 konkretnych odpowiedzi**, poprowadź do [CONSENT]: 
 
 **A. Rozpoznanie Scenariusza (Zawsze zadaj to jako pierwsze w tym bloku):** 1. "Rozumiem, że interesują Cię działania promocyjne i strategiczne. Czy chodzi o poprawę widoczności organicznej (SEO), płatne kampanie Google Ads, czy może reklamę i zarządzanie w Social Mediach (Meta/TikTok)?" 
@@ -185,18 +164,15 @@ Jeśli klient pyta o **Marketing, Reklamę, SEO, Google Ads lub Social Media**, 
 3. "Jaka jest Twoja grupa docelowa?" 
 
 **C. Pytania Specjalistyczne (Zadawaj w zależności od wybranej ścieżki, 1-2 naraz, po kolei):** * **Dla SEO i Google Ads (Wspólne):** 4. "Jaki jest adres Twojej strony www? (Proszę o link. Potrzebujemy sprawdzić, czy strona jest dobrze przygotowana technicznie pod te działania)" 
-
 * **Tylko dla Google Ads:** 5. "Czy Twój obszar działalności jest lokalny (miasto, region), ogólnopolski, czy międzynarodowy?" 
 6. "Czy prowadzono już kiedyś płatne działania reklamowe tego typu?" 
-
-* **Tylko dla Social Media (Meta/TikTok):** 4. "Czy posiadasz już konta w mediach społecznościowych? Jeśli tak, na jakich platformach (np. Facebook, Instagram, TikTok)?" 
+* **Tylko dla Social Media (Meta/TikTok):** 4. "Czy posiadasz już konta w mediach społeczinościowych? Jeśli tak, na jakich platformach (np. Facebook, Instagram, TikTok)?" 
 5. "Jeśli masz konta, czy możesz przesłać nam do nich linki?" 
 6. "Czy możesz nam wskazać konta (konkurencji, liderów), które są dla Ciebie inspiracją, jeśli chodzi o marketing w Social Mediach?" 
 
 --- 
 ## 3. Automatyzacja AI 
---- 
-
+---
 Jeśli klient pyta o usługę **Automatyzacja AI**, natychmiast przejdź do poniższych pytań. Musisz zadać **MAKSYMALNIE 4 PYTANIA** w toku rozmowy. **Zadawaj maksymalnie 1-2 pytania na raz, prowadząc dialog, ZAWSZE CZEKAJĄC NA ODPOWIEDŹ przed zadaniem kolejnego pytania.** **Po uzyskaniu minimum 3 konkretnych odpowiedzi**, poprowadź do [CONSENT]: 
 
 **A. Główny Brief AI (maks. 4 pytania, w tym kluczowe, 1-2 naraz, po kolei):** 1. "Świetnie! Co chcesz, żeby w Twojej firmie działało automatycznie, bez Twojego udziału? Chodzi o konkretne procesy, które pochłaniają najwięcej czasu." 
@@ -204,13 +180,11 @@ Jeśli klient pyta o usługę **Automatyzacja AI**, natychmiast przejdź do poni
 3. "Czy interesuje Cię Chat Bot (podobnie jak ja) wyposażony w wiedzę Twojej marki, który automatyzuje obsługę klienta, czy może potrzebujesz **dedykowanego narzędzia/pluginu** do wewnętrznych procesów (np. generowanie danych, sortowanie, analityka)?" 
 4. "Czy chciałbyś, aby ta automatyzacja obejmowała **raportowanie i analizę danych** (np. zbieranie statystyk, tworzenie podsumowań), czy koncentrujemy się wyłącznie na operacjach?" 
 5. "Czy dedykowana automatyzacja miałaby znaleźć sie na stronie www? (jeśli posiadasz stronę proszę podaj link)" 
-
 **Pamiętaj:** W scenariuszu AI, po zadaniu tych 4 lub 5 pytań, musisz przejść do bloku [CONSENT]. 
 
 --- 
 ## 4. Branding i Logo 
---- 
-
+---
 Jeśli klient pyta o **Branding, Logo, Identyfikację Wizualną lub Księgę Znaku**, natychmiast przejdź do poniższych pytań. Musisz zadać **MAKSYMALNIE 5 PYTANIA** w toku rozmowy. **Zadawaj maksymalnie 1-2 pytania na raz, prowadząc dialog, ZAWSZE CZEKAJĄC NA ODPOWIEDŹ przed zadaniem kolejnego pytania.** **Po uzyskaniu minimum 3 konkretnych odpowiedzi**, poprowadź do [CONSENT]: 
 
 **A. Rozpoznanie Scenariusza (Zawsze zadaj to jako pierwsze w tym bloku):** 1. "Czy interesuje Cię samo **Logo**, czy potrzebujesz kompleksowego **Brandingu** (czyli całej tożsamości wizualnej i strategii marki)?" 
@@ -220,7 +194,7 @@ Jeśli klient pyta o **Branding, Logo, Identyfikację Wizualną lub Księgę Zna
 3. "Czy masz jakieś linki do logo, które Ci się podobają lub które są dla Ciebie inspiracją? Możesz mi je tu wysłać. (Jeśli klient nie ma, to żaden problem)." 
 4. "Czy interesuje Cię również przygotowanie Księgi Znaku? (To dokument z wytycznymi, jak poprawnie używać logo w różnych sytuacjach)." 
 5. "Jakie są główne usługi lub produkty, które oferujesz? Prosze wymien te najważniejsze lub stanowiących podstawę Twojej działalności." 
-6. "Czy chcesz aby logo było dodatkowo w formie znaku, monogramu, czy sama nazwa Twojej firmy?"
+6. "Czy chcesz aby logo było dodatkowo w formie znaku, monogramu, czy sama nazwa Twojej firmy?" 
 
 **C. Kontynuacja Scenariusza (PEŁNY BRANDING):** *Jeśli klient chce pełny branding, zadaj te pytania (1-2 naraz, po kolei):* 1. "Dla jakiej branży ma być stworzony branding, jak nazywa się Twoja firma? (To nasz punkt wyjścia dla strategii komunikacji)." 
 2. "Jak chcesz, aby Twoja marka była postrzegana przez klientów? (np. innowacyjna, profesjonalna, przyjazna, luksusowa, ekspercka)." 
@@ -228,15 +202,12 @@ Jeśli klient pyta o **Branding, Logo, Identyfikację Wizualną lub Księgę Zna
 4. "Czy masz już określone kolory firmowe i czcionki? Jeśli tak, poproszę o ich nazwy i kody kolorów, np. w formacie HEX. (Kody HEX to unikalne identyfikatory cyfrowe, które gwarantują, że kolor na wszystkich materiałach cyfrowych będzie identyczny.)" 
 5. "Czy potrzebujesz kompleksowej **Księgi Znaku/Brand Booka**? (To dokument z wytycznymi, jak poprawnie używać logo, kolorów i typografii)." 
 6. "Jakie są główne usługi lub produkty, które oferujesz? Prosze wymien te najważniejsze lub stanowiących podstawę Twojej działalności." 
-
-
 **Pamiętaj:** W scenariuszu Branding i Logo, po zadaniu 3-5 pytań, musisz przejść do bloku [CONSENT]. 
 
 --- 
 ## 5. Audyt Strategiczny/Marketingowy 
 --- 
 Jeśli klient wyraził chęć przeprowadzenia audytu lub został do niego skierowany (Zasada 3 lub 2.A), zadawaj poniższe pytania, **maksymalnie 1-2 na raz, prowadząc naturalny dialog, ZAWSZE CZEKAJĄC NA ODPOWIEDŹ przed zadaniem kolejnego pytania**. **Musisz zadać wszystkie 5 pytań (lub 4, jeśli link do strony został już podany w rozmowie)** przed przejściem do [CONSENT]. 
-
 1. "Jaką branżę reprezentuje Twoja firma? (To pomoże nam zrozumieć kontekst rynkowy)." 
 2. "Czy masz już istniejącą stronę internetową? Jeśli tak, poproszę o link do niej. (Adres ten jest kluczowy do analizy technicznej i strategicznej). **UWAGA:** Jeśli klient podał link do strony wcześniej w trakcie rozmowy (np. odpowiedział na pytanie w innym scenariuszu, np. w sekcji 2.C), **POMIŃ** to pytanie i przejdź do następnego." 
 3. "Kto jest Twoim idealnym klientem (grupa docelowa)? Proszę o krótki opis, do kogo kierujesz swoje produkty/usługi." 
@@ -279,80 +250,112 @@ Dlatego u nas to działa: **jakość i standard agencji, kontakt i zaangażowani
 * Nie doradzaj w kwestiach zakładania firm, podatków i podobnych. 
 * **Nie pisz ani nie sugeruj pisania artykułów, tekstów, wpisów blogowych, treści na strony internetowe, ani żadnych innych form content marketingu.** """ 
 
+# Inicjalizacja historii konwersacji z nowym, rozbudowanym promptem systemowym 
+conversation_history = [ 
+    {"role": "system", "content": SYSTEM_PROMPT}, 
+]
 
+ # --- Routing Aplikacji --- 
 
-# --- Routing Aplikacji --- 
+@app.route('/')
+def home():
+    """
+    Trasa główna aplikacji. Renderuje interfejs widżetu chatu.
+    Resetuje stan rozmowy przy każdym załadowaniu strony, zachowując system prompt.
+    """
+    global conversation_history
+    # Resetuje konwersację, pozostawiając tylko system prompt
+    conversation_history = conversation_history[:1]
+    return render_template('widget-demo.html')
 
+# DODANE: Ograniczenie liczby zapytań dla endpointu /chat
 @app.route('/chat', methods=['POST'])
-@limiter.limit("15 per minute; 100 per day")
+@limiter.limit("15 per minute; 100 per day") # ZMIENIONO LIMIT Z 5 NA 15
 def handle_chat_request():
+    """
+    Endpoint do obsługi wiadomości wysyłanych z frontendu i komunikacji z OpenAI.
+    Zwraca odpowiedź AI ORAZ pełną historię rozmowy.
+    Dodano mechanizm Retry (3 próby) dla błędów RateLimitError i APIError.
+    """
     client_ip = get_remote_address()
     logger.info(f"REQUEST START | IP: {client_ip}")
 
     if not request.is_json:
+        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Nieprawidłowy format JSON")
         return jsonify({"response": "Błąd: Wymagany format JSON."}), 400
 
     data = request.get_json()
-    user_message = data.get("message", "").strip()
-    client_history = data.get("history", [])
+    user_message = data.get('message', '').strip()
+    # Pobieramy historię przysłaną z frontendu (WordPress)
+    client_history = data.get('history', [])
 
     if not user_message:
+        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Pusta wiadomość")
         return jsonify({"response": "Wiadomość nie może być pusta."}), 400
 
-    # --- LOGIKA BUDOWANIA HISTORII DLA OPENAI ---
-    messages_for_api = []
-    
-    # 1. Wstrzykujemy aktualny SYSTEM_PROMPT (zawsze na początku)
-    messages_for_api.append({"role": "system", "content": SYSTEM_PROMPT})
+    # ----------------------------------------------------------------------------------
+    # RODO POPRAWKA: Logujemy tylko fakt otrzymania wiadomości, BEZ jej treści.
+    logger.info(f"USER MESSAGE RECEIVED | IP: {client_ip}")
+    # ----------------------------------------------------------------------------------
 
-    # 2. Dodajemy historię z frontendu (filtrujemy, by nie dublować promptów systemowych)
+    # --- BUDOWANIE KONTEKSTU DLA OPENAI ---
+    # Zawsze zaczynamy od SYSTEM_PROMPT
+    messages_for_api = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # Dodajemy historię z frontendu (filtrując, by nie dublować promptu systemowego)
     if isinstance(client_history, list):
         for msg in client_history:
             if isinstance(msg, dict) and msg.get("role") in ["user", "assistant"]:
-                messages_for_api.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
+                messages_for_api.append({"role": msg["role"], "content": msg["content"]})
 
-    # 3. Dodajemy nową wiadomość od użytkownika
+    # Dodajemy aktualną wiadomość użytkownika
     messages_for_api.append({"role": "user", "content": user_message})
 
-    # 4. Optymalizacja długości (zachowujemy system prompt + 14 ostatnich wiadomości)
+    # Optymalizacja długości (System Prompt + 14 ostatnich wiadomości)
     if len(messages_for_api) > 15:
         messages_for_api = [messages_for_api[0]] + messages_for_api[-14:]
 
-    try:
-        # Wywołanie modelu OpenAI
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages_for_api,
-            temperature=0.7
-        )
+    # --- MECHANIZM RETRY Z ZAGĘSZCZONYM OPÓŹNIENIEM ---
+    MAX_RETRIES = 3
+    delay = 1.5 # Początkowe opóźnienie w sekundach
 
-        ai_response = completion.choices[0].message.content.strip()
-        
-        # 5. Przygotowanie czystej historii do zwrotu (bez SYSTEM_PROMPT)
-        # Dzięki temu frontend dostaje tylko dialogi, co zapobiega błędom
-        history_to_return = [msg for msg in messages_for_api if msg["role"] != "system"]
-        history_to_return.append({"role": "assistant", "content": ai_response})
+    for attempt in range(MAX_RETRIES):
+        try:
+            # Wywołanie modelu OpenAI
+            completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages_for_api,
+                temperature=0.7
+            )
 
-        logger.info(f"REQUEST SUCCESS | IP: {client_ip}")
+            ai_response = completion.choices[0].message.content.strip()
 
-        return jsonify({
-            "response": ai_response,
-            "history": history_to_return
-        })
+            # Przygotowanie historii do zwrotu (bez system promptu)
+            history_to_return = [msg for msg in messages_for_api if msg["role"] != "system"]
+            history_to_return.append({"role": "assistant", "content": ai_response})
 
-    except Exception as e:
-        logger.error(f"ERROR | IP: {client_ip} | {str(e)}")
-        return jsonify({
-            "response": "Przepraszam, wystąpił błąd techniczny. Spróbuj zadać pytanie jeszcze raz."
-        }), 500
+            logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens} | Próba: {attempt + 1}")
 
+            return jsonify({
+                'response': ai_response,
+                'history': history_to_return
+            })
+
+        except (RateLimitError, APIError) as e:
+            logger.warning(f"RETRY REQUIRED | IP: {client_ip} | Błąd: {type(e).__name__} | Próba: {attempt + 1}/{MAX_RETRIES}")
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(delay)
+                delay *= 2 
+            else:
+                logger.error(f"RETRY FAILED | IP: {client_ip} | Po {MAX_RETRIES} próbach.")
+                return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429
+
+        except Exception as e:
+            logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD OGÓLNY: {type(e).__name__} - {str(e)}")
+            return jsonify({'response': "Przepraszam, wystąpił nieoczekiwany problem techniczny."}), 500
 
 # --- Uruchomienie Serwera --- 
 
 if __name__ == '__main__': 
-    # Render używa zmiennej środowiskowej PORT
     port = int(os.environ.get('PORT', 5001)) 
     app.run(host='0.0.0.0', port=port)
