@@ -1,64 +1,49 @@
-# --- Importy Wymaganych Bibliotek ---
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
-from openai import OpenAI
-# Importujemy konkretne błędy OpenAI do obsługi ponawiania
-from openai import RateLimitError, APIError
+from openai import OpenAI, RateLimitError, APIError
 import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 import logging
-# Wymagane do dodania opóźnienia w mechanizmie retry
 import time
 
-# --- Konfiguracja Logowania ---
-# Ustawienie podstawowej konfiguracji logowania: zapis do pliku 'app.log'
-# Format logu: Czas | Poziom | Wiadomość
+# --- LOGOWANIE ---
 logging.basicConfig(
     filename='app.log',
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    format='%(asctime)s | %(levelname)s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-# Użycie loggera Flask domyślnie wysyła logi do konsoli
 logger = logging.getLogger(__name__)
 
-# --- Inicjalizacja Aplikacji i Klienta OpenAI ---
+# --- INICJALIZACJA ---
 load_dotenv()
 app = Flask(__name__)
 
-# ----------------------------------------------------------------------
-# ZABEZPIECZENIE 1: ZARZĄDZANIE DOSTĘPEM (CORS)
-ALLOWED_ORIGIN = "https://matyladesign.pl" # DOMENA WPISANA NA STAŁE
-# Poprawka: Zmieniono ALLOWED_ORIGEN na ALLOWED_ORIGIN
+# KLUCZ SESJI - to on pozwala Flaskowi rozróżniać użytkowników
+# Możesz go zmienić na dowolny ciąg znaków
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "matyla_secret_7721_xyz")
+
+ALLOWED_ORIGIN = "https://matyladesign.pl"
 CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}})
 
-# ----------------------------------------------------------------------
-# KONFIGURACJA RATE LIMITING (Ograniczenie liczby zapytań)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["15 per minute", "100 per day"], # ZMIENIONO LIMIT Z 5 NA 15
+    default_limits=["15 per minute", "100 per day"],
     storage_uri="memory://"
 )
 
-# Obsługa błędu Rate Limiting (logowanie zablokowanych prób)
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    client_ip = get_remote_address()
-    logger.warning(f"RATE LIMIT PRZEKROCZONY (429) | IP: {client_ip} | Limit: {e.description}")
-    return jsonify({"response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429
-
+# --- OPENAI CLIENT ---
 try:
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("Klucz OPENAI_API_KEY nie został znaleziony...")
     client = OpenAI(api_key=api_key)
-    logger.info("Inicjalizacja OpenAI Client - Sukces")
-except ValueError as e:
-    logger.error(f"BŁĄD KONFIGURACJI KLUCZA API: {e}")
-    print(f"BŁĄD KONFIGURACJI KLUCZA API: {e}")
+    logger.info("OpenAI Client Ready")
+except Exception as e:
+    logger.error(f"OpenAI Init Error: {e}")
+
+
 
 # PEŁNA, USTRUKTURYZOWANA INSTRUKCJA DLA MODELU AI
 SYSTEM_PROMPT = """
@@ -286,105 +271,88 @@ conversation_history = [
 ]
 
 # --- Routing Aplikacji ---
+# --- TWÓJ PROMPT (Wklej tutaj całość jutro) ---
+SYSTEM_PROMPT = """
+Jesteś inteligentnym asystentem agencji **Matyla Design**... 
+[TUTAJ WKLEJ CAŁY SWÓJ DŁUGI PROMPT]
+"""
+
+# --- ROUTING ---
+
 @app.route('/')
 def home():
-    """
-    Trasa główna aplikacji. Renderuje interfejs widżetu chatu.
-    Resetuje stan rozmowy przy każdym załadowaniu strony, zachowując system prompt.
-    """
-    global conversation_history
-    # Resetuje konwersację, pozostawiając tylko system prompt
-    conversation_history = conversation_history[:1]
+    """Resetuje rozmowę przy każdym odświeżeniu strony."""
+    session['conversation_history'] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    # session.permanent = False # sesja wygaśnie po zamknięciu przeglądarki
     return render_template('widget-demo.html')
 
-# DODANE: Ograniczenie liczby zapytań dla endpointu /chat
 @app.route('/chat', methods=['POST'])
-@limiter.limit("15 per minute; 100 per day") # ZMIENIONO LIMIT Z 5 NA 15
+@limiter.limit("15 per minute; 100 per day")
 def handle_chat_request():
-    """
-    Endpoint do obsługi wiadomości wysyłanych z frontendu i komunikacji z OpenAI.
-    Zwraca odpowiedź AI ORAZ pełną historię rozmowy.
-    Dodano mechanizm Retry (3 próby) dla błędów RateLimitError i APIError.
-    """
     client_ip = get_remote_address()
-    logger.info(f"REQUEST START | IP: {client_ip}")
+    
+    # Pobierz historię tylko dla tej sesji (tego użytkownika)
+    history = session.get('conversation_history')
+    
+    # Jeśli sesja nie istnieje (np. ktoś wszedł bezpośrednio na /chat), stwórz nową
+    if not history:
+        history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     if not request.is_json:
-        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Nieprawidłowy format JSON")
-        return jsonify({"response": "Błąd: Wymagany format JSON."}), 400
+        return jsonify({"response": "Błąd: JSON required."}), 400
 
     data = request.get_json()
     user_message = data.get('message', '').strip()
 
     if not user_message:
-        logger.warning(f"REQUEST FAIL | IP: {client_ip} | Błąd: Pusta wiadomość")
         return jsonify({"response": "Wiadomość nie może być pusta."})
 
-    # ----------------------------------------------------------------------------------
-    # RODO POPRAWKA: Logujemy tylko fakt otrzymania wiadomości, BEZ jej treści.
-    # Zapobiega to logowaniu danych osobowych z formularza do pliku app.log
-    logger.info(f"USER MESSAGE RECEIVED | IP: {client_ip}")
-    # ----------------------------------------------------------------------------------
+    logger.info(f"MSG RECEIVED | IP: {client_ip}")
 
-    global conversation_history
-    # 1. Dodaj wiadomość użytkownika do historii
-    conversation_history.append({"role": "user", "content": user_message})
+    # Dodaj wiadomość do lokalnej kopii
+    history.append({"role": "user", "content": user_message})
 
-    # --- MECHANIZM RETRY Z ZAGĘSZCZONYM OPÓŹNIENIEM ---
+    # --- RETRY LOGIC ---
     MAX_RETRIES = 3
-    delay = 1.5 # Początkowe opóźnienie w sekundach
+    delay = 1.5
 
     for attempt in range(MAX_RETRIES):
         try:
-            # 2. Wyślij całą historię do OpenAI, aby zachować kontekst
             completion = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=conversation_history
+                messages=history
             )
 
             ai_response = completion.choices[0].message.content.strip()
+            history.append({"role": "assistant", "content": ai_response})
 
-            # 3. Dodaj odpowiedź AI do historii
-            conversation_history.append({"role": "assistant", "content": ai_response})
+            # ZAPIS DO SESJI - kluczowy moment
+            session['conversation_history'] = history
+            session.modified = True 
 
-            # 4. Zwróć odpowiedź do frontendu, ZAWIERAJĄC PEŁNĄ HISTORIĘ KONWERSACJI
-            response = jsonify({
+            logger.info(f"SUCCESS | IP: {client_ip} | Attempt: {attempt + 1}")
+            
+            return jsonify({
                 'response': ai_response,
-                'history': conversation_history
+                'history': history
             })
 
-            # Logowanie sukcesu BEZ treści odpowiedzi
-            logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Tokeny: {completion.usage.total_tokens} | Próba: {attempt + 1}")
-            return response # Zakończ i zwróć odpowiedź
-
         except (RateLimitError, APIError) as e:
-            # Obsługa błędu limitu zapytań (429) i ogólnych błędów API
-            logger.warning(f"RETRY REQUIRED | IP: {client_ip} | Błąd: {type(e).__name__} | Próba: {attempt + 1}/{MAX_RETRIES}")
-            
-            # Usuwamy wiadomość użytkownika z historii, aby nie powtarzać jej w kolejnej próbie
-            # (Jest ona dodana na początku funkcji)
+            logger.warning(f"RETRY | IP: {client_ip} | {type(e).__name__}")
             if attempt < MAX_RETRIES - 1:
                 time.sleep(delay)
-                delay *= 2 # Podwójne opóźnienie dla kolejnej próby (1.5 -> 3.0 -> 6.0)
+                delay *= 2
             else:
-                # Jeśli to była ostatnia próba i się nie powiodła, usuwamy wiadomość i logujemy błąd.
-                logger.error(f"RETRY FAILED (429) | IP: {client_ip} | Błąd: {type(e).__name__} | Po {MAX_RETRIES} próbach.")
-                # Usuwamy wiadomość użytkownika, aby zachować czystą historię przed zwróceniem błędu
-                conversation_history.pop()
-                # Zwrócenie błędu zgodnie z instrukcją
-                return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429
+                history.pop() # usuń ostatnią wiadomość usera przy błędzie
+                session['conversation_history'] = history
+                return jsonify({"error": "rate_limit", "response": "Limit zapytań. Spróbuj za chwilę."}), 429
 
         except Exception as e:
-            # Inne nieobsłużone błędy
-            logger.error(f"REQUEST FAIL | IP: {client_ip} | BŁĄD OGÓLNY: {type(e).__name__} - {e}")
-            # Usuwamy wiadomość użytkownika, aby zachować czystą historię
-            conversation_history.pop()
-            error_message = "Przepraszam, wystąpił nieoczekiwany problem techniczny. (Błąd: Nieznany błąd API)"
-            return jsonify({'response': error_message}), 500
+            logger.error(f"GENERAL ERROR: {e}")
+            if history: history.pop()
+            session['conversation_history'] = history
+            return jsonify({'response': "Błąd techniczny."}), 500
 
-# --- KONIEC MECHANIZMU RETRY ---
-
-# --- Uruchomienie Serwera ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port)
