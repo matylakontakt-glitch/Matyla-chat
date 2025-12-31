@@ -1,6 +1,8 @@
+# --- Importy Wymaganych Bibliotek ---
 from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
-from openai import OpenAI, RateLimitError, APIError
+from openai import OpenAI
+from openai import RateLimitError, APIError
 import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -8,26 +10,36 @@ from flask_cors import CORS
 import logging
 import time
 
-# --- LOGOWANIE ---
+# --- Konfiguracja Logowania ---
 logging.basicConfig(
     filename='app.log',
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
 
-# --- INICJALIZACJA ---
+# --- Inicjalizacja Aplikacji ---
 load_dotenv()
 app = Flask(__name__)
 
-# KLUCZ SESJI - to on pozwala Flaskowi rozróżniać użytkowników
-# Możesz go zmienić na dowolny ciąg znaków
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "matyla_secret_7721_xyz")
+# --- KLUCZ SESJI (Wymagany do działania sesji użytkownika) ---
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "matyla_super_secret_key_123")
 
+# --- ZABEZPIECZENIE CORS I SESJI ---
+# supports_credentials=True jest kluczowe, aby przeglądarka pamiętała historię!
 ALLOWED_ORIGIN = "https://matyladesign.pl"
-CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}})
+CORS(app, resources={r"/chat": {"origins": [ALLOWED_ORIGIN]}}, supports_credentials=True)
 
+# Dodatkowe ustawienia ciasteczek sesji
+app.config.update(
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=True,  # Ustaw na True dla HTTPS na serwerze
+    SESSION_COOKIE_HTTPONLY=True,
+    PERMANENT_SESSION_LIFETIME=1800
+)
+
+# --- KONFIGURACJA RATE LIMITING ---
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
@@ -35,13 +47,19 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
-# --- OPENAI CLIENT ---
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"response": "Przekroczyłeś limit zapytań. Spróbuj ponownie za chwilę."}), 429
+
+# --- Inicjalizacja OpenAI ---
 try:
     api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("Klucz OPENAI_API_KEY nie został znaleziony.")
     client = OpenAI(api_key=api_key)
-    logger.info("OpenAI Client Ready")
-except Exception as e:
-    logger.error(f"OpenAI Init Error: {e}")
+    logger.info("Inicjalizacja OpenAI Client - Sukces")
+except ValueError as e:
+    logger.error(f"BŁĄD KONFIGURACJI KLUCZA API: {e}")
 
 
 
@@ -274,11 +292,18 @@ conversation_history = [
 
 # --- ROUTING ---
 
+"""
+
+# --- Routing Aplikacji ---
+
 @app.route('/')
 def home():
-    """Resetuje rozmowę przy każdym odświeżeniu strony."""
+    """
+    Przy każdym wejściu na stronę główną lub odświeżeniu, 
+    czyścimy historię w sesji i ustawiamy ją na nowo.
+    """
     session['conversation_history'] = [{"role": "system", "content": SYSTEM_PROMPT}]
-    # session.permanent = False # sesja wygaśnie po zamknięciu przeglądarki
+    session.modified = True
     return render_template('widget-demo.html')
 
 @app.route('/chat', methods=['POST'])
@@ -286,15 +311,13 @@ def home():
 def handle_chat_request():
     client_ip = get_remote_address()
     
-    # Pobierz historię tylko dla tej sesji (tego użytkownika)
+    # Pobieramy historię z sesji konkretnego użytkownika
     history = session.get('conversation_history')
-    
-    # Jeśli sesja nie istnieje (np. ktoś wszedł bezpośrednio na /chat), stwórz nową
     if not history:
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     if not request.is_json:
-        return jsonify({"response": "Błąd: JSON required."}), 400
+        return jsonify({"response": "Błąd: Wymagany format JSON."}), 400
 
     data = request.get_json()
     user_message = data.get('message', '').strip()
@@ -302,30 +325,32 @@ def handle_chat_request():
     if not user_message:
         return jsonify({"response": "Wiadomość nie może być pusta."})
 
-    logger.info(f"MSG RECEIVED | IP: {client_ip}")
+    logger.info(f"USER MESSAGE RECEIVED | IP: {client_ip}")
 
-    # Dodaj wiadomość do lokalnej kopii
+    # 1. Dodaj wiadomość użytkownika do lokalnej kopii historii
     history.append({"role": "user", "content": user_message})
 
-    # --- RETRY LOGIC ---
     MAX_RETRIES = 3
     delay = 1.5
 
     for attempt in range(MAX_RETRIES):
         try:
+            # 2. Wyślij historię tego konkretnego użytkownika do OpenAI
             completion = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=history
             )
 
             ai_response = completion.choices[0].message.content.strip()
+
+            # 3. Dodaj odpowiedź AI do lokalnej kopii historii
             history.append({"role": "assistant", "content": ai_response})
 
-            # ZAPIS DO SESJI - kluczowy moment
+            # 4. Zapisz zaktualizowaną historię z powrotem do sesji użytkownika
             session['conversation_history'] = history
             session.modified = True 
 
-            logger.info(f"SUCCESS | IP: {client_ip} | Attempt: {attempt + 1}")
+            logger.info(f"REQUEST SUCCESS | IP: {client_ip} | Próba: {attempt + 1}")
             
             return jsonify({
                 'response': ai_response,
@@ -333,20 +358,22 @@ def handle_chat_request():
             })
 
         except (RateLimitError, APIError) as e:
-            logger.warning(f"RETRY | IP: {client_ip} | {type(e).__name__}")
+            logger.warning(f"RETRY REQUIRED | IP: {client_ip} | Próba: {attempt + 1}/{MAX_RETRIES}")
             if attempt < MAX_RETRIES - 1:
                 time.sleep(delay)
                 delay *= 2
             else:
-                history.pop() # usuń ostatnią wiadomość usera przy błędzie
+                if history: history.pop()
                 session['conversation_history'] = history
-                return jsonify({"error": "rate_limit", "response": "Limit zapytań. Spróbuj za chwilę."}), 429
+                session.modified = True
+                return jsonify({"error": "rate_limit", "response": "Przekroczyłeś limit zapytań."}), 429
 
         except Exception as e:
-            logger.error(f"GENERAL ERROR: {e}")
+            logger.error(f"BŁĄD OGÓLNY: {e}")
             if history: history.pop()
             session['conversation_history'] = history
-            return jsonify({'response': "Błąd techniczny."}), 500
+            session.modified = True
+            return jsonify({'response': "Przepraszam, wystąpił problem techniczny."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
