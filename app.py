@@ -270,12 +270,7 @@ conversation_history = [
     {"role": "system", "content": SYSTEM_PROMPT},
 ]
 
-# --- Routing Aplikacji ---
-# --- TWÓJ PROMPT (Wklej tutaj całość jutro) ---
-SYSTEM_PROMPT = """
-Jesteś inteligentnym asystentem agencji **Matyla Design**... 
-[TUTAJ WKLEJ CAŁY SWÓJ DŁUGI PROMPT]
-"""
+
 
 # --- ROUTING ---
 
