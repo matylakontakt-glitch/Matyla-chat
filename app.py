@@ -290,9 +290,6 @@ conversation_history = [
 
 
 
-# --- ROUTING ---
-
-"""
 
 # --- Routing Aplikacji ---
 
